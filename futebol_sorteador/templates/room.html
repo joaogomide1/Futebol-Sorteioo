@@ -1,0 +1,228 @@
+{% extends "layout.html" %}
+
+{% block topbar %}
+<header class="room-topbar">
+  <div class="room-topbar-inner">
+    <a href="{{ url_for('index') }}" class="back-link">← Voltar</a>
+    <strong>{{ room.name }}</strong>
+    <a href="{{ url_for('index') }}" class="icon-exit" aria-label="Voltar para salas">↪</a>
+  </div>
+</header>
+{% endblock %}
+
+{% block content %}
+{% set room_players_next = url_for('room_detail', room_id=room.id, _anchor='jogadores') %}
+<section class="app-shell room-page">
+  <div class="room-actions-row">
+    <button type="button" class="code-pill" data-copy-url="{{ request.url_root.rstrip('/') ~ share_path }}">
+      <span>Código:</span>
+      <strong>{{ room.code }}</strong>
+      <span class="copy-mark">⧉</span>
+    </button>
+    <button type="button" class="new-match-button" data-open-new-match>
+      <span>+</span>
+      Nova partida
+    </button>
+  </div>
+
+  <nav class="tabs" aria-label="Menu da sala">
+    <button type="button" class="tab-button active" data-tab-target="jogadores">Jogadores</button>
+    <button type="button" class="tab-button" data-tab-target="partidas">Partidas</button>
+    <button type="button" class="tab-button" data-tab-target="estatisticas">Estatísticas</button>
+  </nav>
+
+  <section id="jogadores" class="tab-panel active">
+    <form action="{{ url_for('create_room_player', room_id=room.id) }}" method="post" class="quick-add-form player-add-card">
+      <input type="text" name="name" placeholder="Nome do jogador" required>
+      <input type="number" name="rating" min="0" max="10" step="0.1" value="5" required aria-label="Nota do jogador">
+      <button type="submit" aria-label="Adicionar jogador">+</button>
+    </form>
+
+    {% if players %}
+      <div class="list-stack">
+        {% for player in players %}
+          <div class="list-card player-list-card">
+            <div>
+              <strong>{{ player.name }}</strong>
+              <span>Nota: {{ player.rating|score }}</span>
+            </div>
+            <div class="icon-actions">
+              <a class="icon-button" href="{{ url_for('edit_player', player_id=player.id, next=room_players_next) }}" aria-label="Editar {{ player.name }}">✎</a>
+              <form action="{{ url_for('deactivate_player', player_id=player.id) }}" method="post" class="mini-form">
+                <input type="hidden" name="next" value="{{ room_players_next }}">
+                <button type="submit" class="icon-button danger ghost" aria-label="Remover {{ player.name }}">⌫</button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">Cadastre jogadores para começar.</div>
+    {% endif %}
+  </section>
+
+  <section id="partidas" class="tab-panel">
+    <div class="card new-match-card" id="nova-partida">
+      <h2>Nova partida</h2>
+      <form action="{{ url_for('create_match', room_id=room.id) }}" method="post" class="stack-form">
+        <div class="form-grid">
+          <label>
+            Título opcional
+            <input type="text" name="title" placeholder="Ex.: Quinta 20h">
+          </label>
+          <label>
+            Dia e horário
+            <input type="datetime-local" name="scheduled_at" value="{{ now_local_value }}">
+          </label>
+        </div>
+
+        <div>
+          <div class="label-row">
+            <strong>Jogadores presentes</strong>
+            <span>Selecione uma quantidade par.</span>
+          </div>
+          {% if players %}
+            <div class="players-picker">
+              {% for player in players %}
+                <label class="player-check">
+                  <input type="checkbox" name="player_ids" value="{{ player.id }}">
+                  <span>{{ player.name }}</span>
+                  <small>{{ player.rating|score }}</small>
+                </label>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="empty">Cadastre jogadores antes de criar uma partida.</div>
+          {% endif %}
+        </div>
+
+        <button type="submit" {% if not players %}disabled{% endif %}>Criar partida e sortear</button>
+      </form>
+    </div>
+
+    <div class="section-title compact">
+      <h2>Partidas marcadas</h2>
+    </div>
+
+    {% if matches %}
+      <div class="list-stack">
+        {% for match in matches %}
+          <a class="list-card match-list-card" href="{{ url_for('match_detail', match_id=match.id) }}">
+            <div>
+              <strong>{{ match.title }}</strong>
+              <span>{{ match.scheduled_at|dt }}</span>
+            </div>
+            <div class="match-mini-score">
+              <strong>{{ match.score_x }} × {{ match.score_y }}</strong>
+              <span class="badge {{ match.status }}">{{ match.status|status_label }}</span>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">Nenhuma partida nessa sala.</div>
+    {% endif %}
+  </section>
+
+  <section id="estatisticas" class="tab-panel">
+    <div class="card stat-card">
+      <h2><span>🏅</span> Artilheiros</h2>
+      {% if stats.top_scorers %}
+        <div class="ranking-list">
+          {% for player, total in stats.top_scorers %}
+            <div class="ranking-row">
+              <span>{{ player.name }}</span>
+              <strong>{{ total }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p>Sem dados ainda.</p>
+      {% endif %}
+    </div>
+
+    <div class="card stat-card">
+      <h2><span>🎯</span> Assistências</h2>
+      {% if stats.top_assists %}
+        <div class="ranking-list">
+          {% for player, total in stats.top_assists %}
+            <div class="ranking-row">
+              <span>{{ player.name }}</span>
+              <strong>{{ total }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p>Sem dados ainda.</p>
+      {% endif %}
+    </div>
+
+    <div class="card stat-card">
+      <h2>Aproveitamento</h2>
+      {% if stats.performance_rows %}
+        <div class="performance-list">
+          {% for row in stats.performance_rows %}
+            <div class="performance-row">
+              <span>{{ row.player.name }}</span>
+              <small>{{ row.games }}J · {{ row.wins }}V · {{ row.draws }}E · {{ row.losses }}D · <strong>{{ row.win_pct|pct }}</strong></small>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p>Sem jogadores cadastrados.</p>
+      {% endif %}
+    </div>
+  </section>
+</section>
+
+<script>
+  const tabButtons = [...document.querySelectorAll("[data-tab-target]")];
+  const tabPanels = [...document.querySelectorAll(".tab-panel")];
+
+  function activateTab(tabId, shouldUpdateHash = true) {
+    const targetPanel = document.getElementById(tabId);
+    if (!targetPanel) return;
+
+    tabButtons.forEach((button) => {
+      button.classList.toggle("active", button.dataset.tabTarget === tabId);
+    });
+    tabPanels.forEach((panel) => {
+      panel.classList.toggle("active", panel.id === tabId);
+    });
+
+    if (shouldUpdateHash) {
+      history.replaceState(null, "", `#${tabId}`);
+    }
+  }
+
+  tabButtons.forEach((button) => {
+    button.addEventListener("click", () => activateTab(button.dataset.tabTarget));
+  });
+
+  const initialTab = window.location.hash.replace("#", "") || "jogadores";
+  activateTab(initialTab, false);
+
+  const newMatchButton = document.querySelector("[data-open-new-match]");
+  if (newMatchButton) {
+    newMatchButton.addEventListener("click", () => {
+      activateTab("partidas");
+      document.getElementById("nova-partida")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  const codeButton = document.querySelector("[data-copy-url]");
+  if (codeButton) {
+    codeButton.addEventListener("click", async () => {
+      const original = codeButton.innerHTML;
+      try {
+        await navigator.clipboard.writeText(codeButton.dataset.copyUrl);
+        codeButton.innerHTML = "<span>Link copiado</span>";
+        setTimeout(() => { codeButton.innerHTML = original; }, 1200);
+      } catch (error) {
+        codeButton.innerHTML = "<span>Copie o código: {{ room.code }}</span>";
+        setTimeout(() => { codeButton.innerHTML = original; }, 1800);
+      }
+    });
+  }
+</script>
+{% endblock %}

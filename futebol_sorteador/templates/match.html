@@ -1,0 +1,273 @@
+{% extends "layout.html" %}
+
+{% block topbar %}
+<header class="room-topbar">
+  <div class="room-topbar-inner">
+    <a href="{{ url_for('room_detail', room_id=match.room.id, _anchor='partidas') }}" class="back-link">← Voltar</a>
+    <strong>{{ match.room.name }}</strong>
+    <a href="{{ url_for('index') }}" class="icon-exit" aria-label="Voltar para salas">↪</a>
+  </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<section class="app-shell">
+  <section class="match-header-card card">
+    <div>
+      <span class="eyebrow">{{ match.scheduled_at|dt }}</span>
+      <h1>{{ match.title }}</h1>
+    </div>
+    <span class="badge {{ match.status }}">{{ match.status|status_label }}</span>
+  </section>
+
+  <section class="scoreboard card">
+    <div class="score-team">
+      <span>Time X</span>
+      <strong>{{ match.score_x }}</strong>
+      <small>Média {{ avg_x|score }}</small>
+    </div>
+    <div class="score-center">
+      <span>x</span>
+      {% if match.status == "in_progress" %}
+        <div id="timer" class="timer"
+             data-start-ms="{{ start_time_ms }}"
+             data-duration="{{ match.duration_seconds }}"
+             data-finish-url="{{ url_for('finish_by_timer', match_id=match.id) }}">08:00</div>
+      {% elif match.status == "finished" %}
+        <div class="timer finished">Encerrada</div>
+      {% else %}
+        <div class="timer idle">08:00</div>
+      {% endif %}
+      <small>8 minutos ou {{ goal_limit }} gols</small>
+    </div>
+    <div class="score-team right">
+      <span>Time Y</span>
+      <strong>{{ match.score_y }}</strong>
+      <small>Média {{ avg_y|score }}</small>
+    </div>
+  </section>
+
+  <section class="card actions-panel">
+    {% if match.status == "scheduled" %}
+      <form action="{{ url_for('start_match', match_id=match.id) }}" method="post">
+        <button type="submit">Iniciar partida</button>
+      </form>
+      <form action="{{ url_for('reroll_match', match_id=match.id) }}" method="post">
+        <button type="submit" class="secondary">Sortear novamente</button>
+      </form>
+    {% elif match.status == "in_progress" %}
+      <form action="{{ url_for('manual_finish', match_id=match.id) }}" method="post">
+        <button type="submit" class="danger">Encerrar partida</button>
+      </form>
+    {% else %}
+      <form action="{{ url_for('rematch', match_id=match.id) }}" method="post">
+        <button type="submit">Criar revanche com novo sorteio</button>
+      </form>
+    {% endif %}
+  </section>
+
+  <section class="teams-grid">
+    <div class="card team-card">
+      <h2>Time X</h2>
+      {% if assignments_x %}
+        <ul class="lineup">
+          {% for assignment in assignments_x %}
+            <li>
+              <span>{{ assignment.player.name }}</span>
+              <small>{{ assignment.rating_snapshot|score }}</small>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="empty">Sem jogadores.</div>
+      {% endif %}
+    </div>
+
+    <div class="card team-card">
+      <h2>Time Y</h2>
+      {% if assignments_y %}
+        <ul class="lineup">
+          {% for assignment in assignments_y %}
+            <li>
+              <span>{{ assignment.player.name }}</span>
+              <small>{{ assignment.rating_snapshot|score }}</small>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="empty">Sem jogadores.</div>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if match.status == "in_progress" %}
+  <section class="teams-grid">
+    <div class="card goal-card">
+      <h2>Gol — Time X</h2>
+      <form action="{{ url_for('add_goal', match_id=match.id) }}" method="post" class="stack-form">
+        <input type="hidden" name="team" value="X">
+        <label>
+          Autor do gol
+          <select name="scorer_id" required>
+            {% for assignment in assignments_x %}
+              <option value="{{ assignment.player.id }}">{{ assignment.player.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Assistência
+          <select name="assist_id">
+            <option value="">Sem assistência</option>
+            {% for assignment in assignments_x %}
+              <option value="{{ assignment.player.id }}">{{ assignment.player.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <button type="submit">Registrar gol do Time X</button>
+      </form>
+    </div>
+
+    <div class="card goal-card">
+      <h2>Gol — Time Y</h2>
+      <form action="{{ url_for('add_goal', match_id=match.id) }}" method="post" class="stack-form">
+        <input type="hidden" name="team" value="Y">
+        <label>
+          Autor do gol
+          <select name="scorer_id" required>
+            {% for assignment in assignments_y %}
+              <option value="{{ assignment.player.id }}">{{ assignment.player.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Assistência
+          <select name="assist_id">
+            <option value="">Sem assistência</option>
+            {% for assignment in assignments_y %}
+              <option value="{{ assignment.player.id }}">{{ assignment.player.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <button type="submit">Registrar gol do Time Y</button>
+      </form>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if match.status != "finished" %}
+  <section class="card">
+    <h2>Alterar escalações</h2>
+    <div class="forms-columns">
+      <form action="{{ url_for('move_player', match_id=match.id) }}" method="post" class="stack-form">
+        <h3>Mover jogador de time</h3>
+        <label>
+          Jogador
+          <select name="assignment_id" required>
+            {% for assignment in match.assignments %}
+              <option value="{{ assignment.id }}">{{ assignment.player.name }} — Time {{ assignment.team }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Novo time
+          <select name="team" required>
+            <option value="X">Time X</option>
+            <option value="Y">Time Y</option>
+          </select>
+        </label>
+        <button type="submit" class="secondary">Mover</button>
+      </form>
+
+      <form action="{{ url_for('substitute_player', match_id=match.id) }}" method="post" class="stack-form">
+        <h3>Substituir por jogador cadastrado</h3>
+        <label>
+          Sai
+          <select name="assignment_id" required>
+            {% for assignment in match.assignments %}
+              <option value="{{ assignment.id }}">{{ assignment.player.name }} — Time {{ assignment.team }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Entra
+          <select name="incoming_player_id" required {% if not available_players %}disabled{% endif %}>
+            {% for player in available_players %}
+              <option value="{{ player.id }}">{{ player.name }} — {{ player.rating|score }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <button type="submit" class="secondary" {% if not available_players %}disabled{% endif %}>Substituir</button>
+        {% if not available_players %}
+          <small>Não há jogador cadastrado disponível fora desta partida.</small>
+        {% endif %}
+      </form>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="card">
+    <h2>Gols e assistências</h2>
+    {% if match.events %}
+      <ol class="events-list">
+        {% for event in match.events %}
+          <li>
+            <strong>{{ event.minute }}'</strong>
+            <span>Time {{ event.team }} — gol de {{ event.scorer.name }}</span>
+            {% if event.assist %}
+              <small>assistência de {{ event.assist.name }}</small>
+            {% else %}
+              <small>sem assistência</small>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <div class="empty">Nenhum gol registrado.</div>
+    {% endif %}
+  </section>
+</section>
+
+{% if match.status == "in_progress" %}
+<script>
+  const timer = document.getElementById("timer");
+  let finishAlreadySent = false;
+
+  function pad(value) {
+    return String(value).padStart(2, "0");
+  }
+
+  async function finishByTimer() {
+    if (finishAlreadySent) return;
+    finishAlreadySent = true;
+    try {
+      const response = await fetch(timer.dataset.finishUrl, { method: "POST" });
+      const data = await response.json();
+      if (data.finished) window.location.reload();
+    } catch (error) {
+      timer.textContent = "00:00";
+    }
+  }
+
+  function renderTimer() {
+    const startMs = Number(timer.dataset.startMs);
+    const durationMs = Number(timer.dataset.duration) * 1000;
+    const remainingMs = durationMs - (Date.now() - startMs);
+
+    if (remainingMs <= 0) {
+      timer.textContent = "00:00";
+      timer.classList.add("expired");
+      finishByTimer();
+      return;
+    }
+
+    const totalSeconds = Math.ceil(remainingMs / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    timer.textContent = `${pad(minutes)}:${pad(seconds)}`;
+  }
+
+  renderTimer();
+  setInterval(renderTimer, 1000);
+</script>
+{% endif %}
+{% endblock %}

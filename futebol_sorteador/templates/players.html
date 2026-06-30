@@ -1,0 +1,62 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <span class="eyebrow">Cadastro global</span>
+    <h1>Jogadores</h1>
+    <p>Jogadores criados aqui ficam disponíveis como jogadores globais. Para organizar melhor uma sala, cadastre jogadores dentro da própria sala.</p>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Novo jogador global</h2>
+  <form method="post" class="quick-add-form wide">
+    <input type="text" name="name" placeholder="Nome do jogador" required>
+    <input type="number" name="rating" min="0" max="10" step="0.1" placeholder="Nota" value="5" required>
+    <button type="submit">+</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Ativos</h2>
+  {% if active_players %}
+    <div class="list-stack">
+      {% for player in active_players %}
+        <div class="list-card player-list-card">
+          <div>
+            <strong>{{ player.name }}</strong>
+            <span>Nota: {{ player.rating|score }}</span>
+          </div>
+          <div class="icon-actions">
+            <a class="icon-button" href="{{ url_for('edit_player', player_id=player.id) }}" aria-label="Editar {{ player.name }}">✎</a>
+            <form action="{{ url_for('deactivate_player', player_id=player.id) }}" method="post" class="mini-form">
+              <button type="submit" class="icon-button danger ghost" aria-label="Remover {{ player.name }}">⌫</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty">Nenhum jogador ativo.</div>
+  {% endif %}
+</section>
+
+{% if inactive_players %}
+<section class="card muted-card">
+  <h2>Removidos</h2>
+  <div class="list-stack">
+    {% for player in inactive_players %}
+      <div class="list-card player-list-card">
+        <div>
+          <strong>{{ player.name }}</strong>
+          <span>Nota: {{ player.rating|score }}</span>
+        </div>
+        <form action="{{ url_for('restore_player', player_id=player.id) }}" method="post" class="mini-form">
+          <button type="submit" class="secondary">Restaurar</button>
+        </form>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

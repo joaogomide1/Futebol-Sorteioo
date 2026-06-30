@@ -1,0 +1,55 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="hero-panel">
+  <div>
+    <span class="eyebrow">Futebol entre amigos</span>
+    <h1>Sorteie times justos e registre as partidas.</h1>
+    <p>Crie uma sala, cadastre jogadores com nota, gere dois times equilibrados e acompanhe gols, assistências e aproveitamento.</p>
+  </div>
+  <div class="hero-stats">
+    <div><strong>{{ players_count }}</strong><span>jogadores</span></div>
+    <div><strong>{{ matches_count }}</strong><span>partidas</span></div>
+  </div>
+</section>
+
+<section class="home-grid">
+  <div class="card">
+    <h2>Criar sala</h2>
+    <form action="{{ url_for('create_room') }}" method="post" class="stack-form">
+      <input type="text" name="name" placeholder="Ex.: Fut Salomão" required>
+      <button type="submit">Criar sala</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Entrar por código</h2>
+    <form action="{{ url_for('join_room') }}" method="post" class="stack-form">
+      <input type="text" name="code" placeholder="Ex.: BDE102" maxlength="12" required>
+      <button type="submit" class="secondary">Entrar</button>
+    </form>
+  </div>
+</section>
+
+<section class="section-title">
+  <h2>Salas</h2>
+</section>
+
+{% if rooms %}
+  <div class="cards-grid">
+    {% for room in rooms %}
+      <a class="room-card card" href="{{ url_for('room_detail', room_id=room.id) }}">
+        <div>
+          <h3>{{ room.name }}</h3>
+          <p>Criada em {{ room.created_at|dt }}</p>
+        </div>
+        <div class="room-card-footer">
+          <span class="code-chip">{{ room.code or "SEM CÓDIGO" }}</span>
+          <span>{{ room.matches|length }} partida(s)</span>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty">Nenhuma sala criada ainda.</div>
+{% endif %}
+{% endblock %}

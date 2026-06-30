@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#06160c">
+  <title>{{ title or "Sorteador de Futebol" }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  {% block topbar %}
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a href="{{ url_for('index') }}" class="brand">Sorteador Fut</a>
+        <nav class="main-nav">
+          <a href="{{ url_for('index') }}">Salas</a>
+          <a href="{{ url_for('players') }}">Jogadores</a>
+        </nav>
+      </div>
+    </header>
+  {% endblock %}
+
+  <main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <section class="alerts">
+          {% for category, message in messages %}
+            <div class="alert {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </section>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
